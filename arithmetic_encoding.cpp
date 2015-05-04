@@ -43,16 +43,35 @@ psym * make_source()
 
 psym select_sym(psym * vect)
 {
-    psym selection;
     int rd= rand() % TOT;
+    int i=0;
 
-    return selection;
+    while(rd<vect[i]->start || rd>vect[i]->end) // cerca in quale simbolo ricade rd
+    {
+        i++;
+    }
+
+    return vect[i];
 }
 
 
 int main(int argc,char** argv)
 {
 
+    psym * vect = make_source();
+    double totp=0;
+
+    for(int i=0 ; i<NUM_SYM;i++)
+    {
+        totp +=vect[i]->p;
+        cout << "=================== \n";
+        cout << "simbolo : " << vect[i]->val << " \n";
+        cout << "probabilità : " << vect[i]->p << " \n";
+        cout << "=================== \n";
+
+    }
+
+    cout << "Probabilità cumulativa :" << totp << "\n";
 
     return 0;
 }

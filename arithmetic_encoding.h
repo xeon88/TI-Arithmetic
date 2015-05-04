@@ -5,6 +5,8 @@
 #define BASE_SYM 0
 #define TOT 1000
 
+using namespace std;
+
 typedef struct sym
 {
     int val; // simbolo numero
