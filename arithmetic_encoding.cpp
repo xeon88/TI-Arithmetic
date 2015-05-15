@@ -1,8 +1,8 @@
 #include "arithmetic_encoding.h"
 
 
-sym::sym(char in, double pin, int s , int e, double sp, double ep) :
-    val(in) , p(pin) , start(s) , end(e) , start_p(sp), end_p(ep) {}
+sym::sym(char in, double pin, int e, double ep) :
+    val(in) , p(pin) , end(e), end_p(ep) {}
 
 /*
     Funzione per la generazione del modello della sorgente , ovvero i simboli
@@ -17,9 +17,7 @@ psym * make_source_model()
     int tot_prob=TOT;                       // probabilità ancora da assegnare
     double p;                               // probabilità del simbolo
     int rd;                                 // temporanea per assegnazione probabilità
-    int s=0;                                // inizio range valori estrazione
     int e=0;                                // fine range valori estrazione
-    double sp;                              // probabilità iniziale
     double ep;                              // probabilità finale
     int * ranges= new int [NUM_SYM];        // vettore con le dimensione dei range di estrazione
 
@@ -31,6 +29,7 @@ psym * make_source_model()
         ranges[i]=rd;
         tot_prob -=rd;
     }
+
 
     if(tot_prob<TOT)                        // distribuzione dei range non completa
     {
@@ -44,56 +43,31 @@ psym * make_source_model()
 
     }
 
+    double prev=0;
+
     for (int k=0;k<NUM_SYM;k++)
     {
-        e=s+ranges[k]-1;
-        p=(double)ranges[k]/(double)TOT;                // probabilità del simbolo
+        e=e+ranges[k];
         ep=(double)e/(double)TOT;
-        sp=(double)s/(double)TOT;
-        vect[k]=new sym(BASE_SYM+k,p,s,e,sp,ep);
-        s=e+1;                                          // aggiorno il valore per lo start
+        p=(ep-prev)/double(TOT);
+        vect[k]=new sym(BASE_SYM+k,p,e,ep);
+        prev=ep;
     }
-
-
 
     return vect;
 }
 
-psym select_sym(psym * vect, int rand)
+
+int select_sym(psym * vect, int rand)
 {
     int i=0;
 
-    while(rand<vect[i]->start || rand>vect[i]->end)     // cerca in quale simbolo ricade rd
+    while(rand>vect[i]->end)     // cerca in quale simbolo ricade rd
     {
         i++;
     }
 
-    return vect[i];
-}
-
-/*
-    Compone una stringa la quale termina sempre con il simbolo di fine stringa
-    definito come ultimo elemento del vettore vect EOS = vect[NUM_SYM-1]
-*/
-
-char* make_message(int n, psym * vect)
-{
-
-    int k;                                          // variabile per estrazione int;
-    char * message = new char[n];                   // messaggio da produrre
-    psym extract;
-    int range_sym= TOT-(EOS->end - EOS->start +1);   // escludo il fine stringa
-    for(int i=0;i<n-1;i++)                          // compongo casualmente il messaggio
-    {
-        k=rand()%range_sym;
-        extract=select_sym(vect,k);
-        message[i]=extract->val;
-    }
-
-    message[n-1]=EOS->val;                          // concludo con il fine stringa
-
-    return message;
-
+    return i;
 }
 
 /*
@@ -101,25 +75,16 @@ calcola un valore double il quale esprime la codifica della stringa
 
 */
 
-double encode_message(int n , char * message , psym * vect)
+void encode_sym(psym * vect , int curr, double * limits)
 {
 
-    double encode;
-    double high_p=1;                            // inizializzo estremo superiore
-    double low_p=0;                             // inizializzo estremo inferiore
-    double range=0;
-
-    for(int i=0;i<n;i++)
+    double range=limits[HIGH]-limits[LOW];
+    limits[HIGH]=limits[LOW]+(range)*(vect[curr]->end_p);    // aggiorno estremo sup range prob
+    if (curr>0)
     {
-        char curr_char=message[i];
-        psym curr_sym=vect[(int)curr_char-BASE_SYM];
-        range=high_p-low_p;
-        high_p=low_p+(range)*(curr_sym->end_p);            // aggiorno estremo sup range prob
-        low_p=low_p+(range)*(curr_sym->start_p);           // aggiorno estremo inf prob
+        limits[LOW]=limits[LOW]+(range)*(vect[curr-1]->end_p);
     }
-
-    encode=(high_p+low_p)/2;            // scelgo per semplificità il punto medio dell'intervallo
-    return encode;
+         // aggiorno estremo inf prob
 
 }
 
@@ -127,34 +92,138 @@ double encode_message(int n , char * message , psym * vect)
     Decodifica il messaggio originale avendo in input il double calcolato dall'encoder
 
 */
-
-char * decode_message(double p, int n, psym * vect)
+char decode_sym(double p,psym * vect,double * limits)
 {
 
-    char * message=new char[n];
-    double low=0;           // lower bound
-    double high=1;          // upper bound
     double range;           // dimensione range su cui ricercare p
     int j;
-    double old_low;         // tmp per aggiornamento del lower bound con cui poi calcolo upper
-    for(int i=0;i<n;i++)
+    char sym;
+    double low_j;
+    double high_j;
+
+    range=limits[HIGH]-limits[LOW];
+    j=0;
+                                // aggiorno la dimensione del range
+    while(p>(high_j=(limits[LOW]+(range)*vect[j]->end_p)))       //  cerco j t.c low(j)< p < high(j)
     {
-        j=0;
-        range=high-low;                                 // aggiorno la dimensione del range
-        while(!((p>low+(range)*vect[j]->start_p) &&
-                (p<low+(range)*vect[j]->end_p)) )       //  cerco j t.c low(j)< p < high(j)
+        j++;
+    }
+
+    sym=vect[j]->val;
+    limits[HIGH]=limits[LOW]+(range)*(vect[j]->end_p);
+    if(j>0)
+    {
+        limits[LOW]=limits[LOW]+(range)*(vect[j-1]->end_p);
+    }
+
+    return sym;
+}
+
+/*
+    Compone una stringa la quale termina sempre con il simbolo di fine stringa
+    definito come ultimo elemento del vettore vect EOS = vect[NUM_SYM-1]
+*/
+
+void encode_decode(int n, psym * vect)
+{
+
+    double * limit_encoder;
+    double * limit_decoder;
+    int i;
+    int k;
+    int j;
+    int r;
+    int range;
+    char * buffer_encoder;
+    double * buffer_decoder;
+    char * output_decoder;
+    int * break_point;
+    int curr;
+    double encode;
+    char decoded;
+
+    limit_encoder=new double[2];
+    limit_decoder=new double[2];
+    buffer_decoder=new double[n];
+    buffer_encoder=new char[n];
+    output_decoder=new char[n];
+    break_point=new int[n];
+    limit_decoder[LOW]=0;
+    limit_decoder[HIGH]=1;
+    limit_encoder[LOW]=0;
+    limit_encoder[HIGH]=1;
+    i=0;
+    k=0;
+    j=0;
+
+    range=TOT-(EOS->end - vect[NUM_SYM-2]->end)+1;
+
+
+    while(i<n)
+    {
+        r=rand()% range;
+        curr=select_sym(vect,r);
+        buffer_encoder[i]=vect[curr]->val;
+        if(limit_encoder[HIGH]-limit_encoder[LOW]>1e-10)
         {
+            encode_sym(vect,curr,limit_encoder);
+        }
+        else
+        {
+            buffer_decoder[j]=(limit_encoder[HIGH]+limit_encoder[LOW])/2;
+            limit_encoder[LOW]=0;
+            limit_encoder[HIGH]=1;
             j++;
         }
 
-        message[i]=vect[j]->val;
-        old_low=low;
-        low=low+(range)*(vect[j]->start_p);
-        high=old_low+(range)*(vect[j]->end_p);
+        i++;
     }
 
-    return message;
+    buffer_decoder[j]=(limit_encoder[HIGH]+limit_encoder[LOW])/2;
+
+    j=0;
+    double p_range;
+
+
+    while(buffer_decoder[k]>0)
+    {
+        p_range=limit_decoder[HIGH]-limit_decoder[LOW];
+
+        if(p_range>1e-10)
+        {
+            decoded=decode_sym(buffer_decoder[k],vect,limit_decoder);
+            output_decoder[j]=decoded;
+            j++;
+        }
+        else
+        {
+            limit_decoder[LOW]=0;
+            limit_decoder[HIGH]=1;
+            k++;
+        }
+
+    }
+
+
+    int before_encoding=8*n;
+    int after_encoding=k*64;
+    double compression=(double)after_encoding/(double)before_encoding;
+
+    cout << "======================================= \n" ;
+    cout << "Numero simboli : " << n << " \n";
+    cout << "Input in bit : " << before_encoding << "\n";
+    cout << "Output in bit : " << after_encoding << "\n\n";
+    cout << "Split : " << k << "\n";
+    cout << "Compressione " << compression << "\n";
+    cout << "======================================= \n" ;
+    //cout << "Messaggio inviato  :" << buffer_encoder << "\n";
+    //cout << "Messaggio ricevuto :" << output_decoder << "\n";
+
+    free(buffer_decoder);
+    free(buffer_encoder);
+    free(output_decoder);
 }
+
 
 int main(int argc,char** argv)
 {
@@ -168,27 +237,17 @@ int main(int argc,char** argv)
         cout << "=================== \n";
         cout << "simbolo : " << vect[i]->val << " \n";
         cout << "probabilità : " << vect[i]->p << " \n";
-        cout << "start :" << vect[i]->start_p << "\n";
         cout << "end :" << vect[i]->end_p << "\n";
         cout << "=================== \n";
 
     }
 
-
     int n=10;
-    double encode;
-    char * send = make_message(n,vect);
-    char * received;
 
-    cout << "Message to encode : " << send << "\n";
-
-    encode=encode_message(n,send,vect);
-
-    cout << "Result encode : " << encode << "\n";
-
-    received=decode_message(encode,n,vect);
-
-    cout << "Message decoded : " << received << "\n";
+    for(int k=1;k<7;k++)
+    {
+        encode_decode(pow(10,k),vect);
+    }
 
     return 0;
 }
