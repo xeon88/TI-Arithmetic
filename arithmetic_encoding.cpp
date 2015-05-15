@@ -82,9 +82,9 @@ void encode_sym(psym * vect , int curr, double * limits)
     limits[HIGH]=limits[LOW]+(range)*(vect[curr]->end_p);    // aggiorno estremo sup range prob
     if (curr>0)
     {
-        limits[LOW]=limits[LOW]+(range)*(vect[curr-1]->end_p);
-    }
-         // aggiorno estremo inf prob
+        limits[LOW]=limits[LOW]+(range)*(vect[curr-1]->end_p); // aggiorno estremo inf prob solo se
+    }                                                          // non è il primo carattere
+
 
 }
 
@@ -96,15 +96,14 @@ char decode_sym(double p,psym * vect,double * limits)
 {
 
     double range;           // dimensione range su cui ricercare p
-    int j;
-    char sym;
-    double low_j;
-    double high_j;
+    int j;                  // iteratore
+    char sym;               // simbolo decodificato
+    double high_j;          // limite superiore del simbolo j
 
-    range=limits[HIGH]-limits[LOW];
+    range=limits[HIGH]-limits[LOW];                             // aggiorno la dimensione del range
     j=0;
-                                // aggiorno la dimensione del range
-    while(p>(high_j=(limits[LOW]+(range)*vect[j]->end_p)))       //  cerco j t.c low(j)< p < high(j)
+
+    while(p>(high_j=(limits[LOW]+(range)*vect[j]->end_p)))       //  cerco j t.c p < high(j)
     {
         j++;
     }
@@ -221,8 +220,6 @@ void encode_decode(int n, psym * vect)
     cout << "Split : " << k << "\n";
     cout << "Compressione " << compression << "\n";
     cout << "======================================= \n" ;
-    //cout << "Messaggio inviato  :" << buffer_encoder << "\n";
-    //cout << "Messaggio ricevuto :" << output_decoder << "\n";
 
     free(buffer_decoder);
     free(buffer_encoder);
