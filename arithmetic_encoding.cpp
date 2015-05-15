@@ -71,7 +71,7 @@ int select_sym(psym * vect, int rand)
 }
 
 /*
-calcola un valore double il quale esprime la codifica della stringa
+calcola i nuovi limiti dell'intervallo normalizzato per la codifica
 
 */
 
@@ -89,7 +89,7 @@ void encode_sym(psym * vect , int curr, double * limits)
 }
 
 /*
-    Decodifica il messaggio originale avendo in input il double calcolato dall'encoder
+    Decodifica un simbolo avendo in input il double calcolato dall'encoder
 
 */
 char decode_sym(double p,psym * vect,double * limits)
@@ -120,8 +120,13 @@ char decode_sym(double p,psym * vect,double * limits)
 }
 
 /*
-    Compone una stringa la quale termina sempre con il simbolo di fine stringa
-    definito come ultimo elemento del vettore vect EOS = vect[NUM_SYM-1]
+    simula il processo di codifica e di decodifica senza normalizzazione
+    Prima compone il messaggio, successivamente lo codifica seconda
+    la procedura della riduzione degli intervalli
+    I simboli vengono codificati fino a che non si raggiunge l'underflow
+    In tal caso i messaggi vengono codificati a blocchi
+
+
 */
 
 void encode_decode(int n, psym * vect)
